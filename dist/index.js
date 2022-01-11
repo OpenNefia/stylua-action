@@ -41,13 +41,26 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const exec_1 = __nccwpck_require__(1514);
 const tc = __importStar(__nccwpck_require__(7784));
+const fs_1 = __nccwpck_require__(5747);
 const semver = __importStar(__nccwpck_require__(1383));
 const stylua_1 = __importDefault(__nccwpck_require__(2256));
+const crypto = __importStar(__nccwpck_require__(6417));
+function sha256(file) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // encode as UTF-8
+        const msgBuffer = yield fs_1.promises.readFile(file);
+        // hash the message
+        const hashBuffer = crypto.createHash('sha256');
+        hashBuffer.update(msgBuffer);
+        return hashBuffer.digest('hex');
+    });
+}
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const token = core.getInput('token');
             let version = semver.clean(core.getInput('version'));
+            const neededSha = core.getInput('sha256');
             let releases;
             if (!version || version === '') {
                 core.debug('No version provided, or version provided is malformed, finding latest release version');
@@ -82,6 +95,10 @@ function run() {
                 }
                 core.debug(`Chose asset ${asset.browser_download_url}`);
                 const downloadedPath = yield tc.downloadTool(asset.browser_download_url);
+                const sha = yield sha256(downloadedPath);
+                if (sha !== neededSha) {
+                    throw new Error(`found sha ${sha} != needed sha ${neededSha}`);
+                }
                 const extractedPath = yield tc.extractZip(downloadedPath);
                 yield tc.cacheDir(extractedPath, 'stylua', version);
                 core.addPath(extractedPath);
@@ -94,7 +111,8 @@ function run() {
             yield exec_1.exec(`stylua ${args}`);
         }
         catch (error) {
-            core.setFailed(error.message);
+            const { message } = error;
+            core.setFailed(`${message}`);
         }
     });
 }

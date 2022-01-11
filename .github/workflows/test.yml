@@ -23,3 +23,4 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --check ./test
+          sha256: a20c3d177866129f701fed3693825a4050ad45c32dda5369de8365aff4dba635

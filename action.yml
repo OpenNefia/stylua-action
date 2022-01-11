@@ -13,6 +13,9 @@ inputs:
     required: true
   version:
     description: 'The version of StyLua to run'
+  sha256:
+    description: 'sha256sum of the release .zip for the current platform'
+    required: true
 runs:
-  using: 'node12'
+  using: 'node16'
   main: 'dist/index.js'
