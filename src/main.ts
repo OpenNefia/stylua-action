@@ -1,13 +1,27 @@
 import * as core from '@actions/core'
 import {exec} from '@actions/exec'
 import * as tc from '@actions/tool-cache'
+import {promises} from 'fs'
 import * as semver from 'semver'
 import stylua from './stylua'
+import * as crypto from 'crypto'
+
+async function sha256(file: string): Promise<string> {
+  // encode as UTF-8
+  const msgBuffer = await promises.readFile(file)
+
+  // hash the message
+  const hashBuffer = crypto.createHash('sha256')
+  hashBuffer.update(msgBuffer)
+
+  return hashBuffer.digest('hex')
+}
 
 async function run(): Promise<void> {
   try {
     const token = core.getInput('token')
     let version = semver.clean(core.getInput('version'))
+    const neededSha = core.getInput('sha256')
 
     let releases
     if (!version || version === '') {
@@ -56,6 +70,13 @@ async function run(): Promise<void> {
       core.debug(`Chose asset ${asset.browser_download_url}`)
 
       const downloadedPath = await tc.downloadTool(asset.browser_download_url)
+
+      const sha = await sha256(downloadedPath)
+
+      if (sha !== neededSha) {
+        throw new Error(`found sha ${sha} != needed sha ${neededSha}`)
+      }
+
       const extractedPath = await tc.extractZip(downloadedPath)
       await tc.cacheDir(extractedPath, 'stylua', version)
       core.addPath(extractedPath)
@@ -70,7 +91,8 @@ async function run(): Promise<void> {
 
     await exec(`stylua ${args}`)
   } catch (error) {
-    core.setFailed(error.message)
+    const {message} = error as Error
+    core.setFailed(`${message}`)
   }
 }
 
